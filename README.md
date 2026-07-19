@@ -32,7 +32,7 @@ Gemini proposes a status per line and every cell stays editable afterwards:
 - `OK` — matched to an estimate line and payable
 - `Consumable` — shop consumables with no estimate line
 - `Wear and Tear` — age-related rather than accident-related
-- `No Estitmation` — a genuine repair part with no estimate line *(spelling kept to match the source workbook)*
+- `No Estimation` — a genuine repair part with no estimate line
 - `No Liable` — outside the scope of the claim
 
 ## Usage

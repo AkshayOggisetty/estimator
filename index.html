@@ -447,7 +447,7 @@ const $  = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 const MAX_BYTES = 18 * 1024 * 1024;
 
-const STATUSES = ["OK", "Consumable", "Wear and Tear", "No Estitmation", "No Liable"];
+const STATUSES = ["OK", "Consumable", "Wear and Tear", "No Estimation", "No Liable"];
 const LAB_STATUSES = ["OK", "No Liable"];
 const LAB_TYPES = ["", "R", "D", "P"];
 
@@ -732,7 +732,7 @@ Respond with ONE JSON object only. No prose, no markdown fences.
       "matched_source_id": string|null,
       "matched_line_no": string|null,
       "estimate_amount": number|null,
-      "status": "OK"|"Consumable"|"Wear and Tear"|"No Estitmation"|"No Liable"
+      "status": "OK"|"Consumable"|"Wear and Tear"|"No Estimation"|"No Liable"
     }
   ],
   "labour": [
@@ -769,7 +769,7 @@ Status rules (the assessor's liability call):
 - "OK" — matched to an estimate line and payable.
 - "Consumable" — nuts, bolts, screws, clips, tape, sealant, adhesive, cleaner, polish, perfume, gas, coolant, filler and similar shop consumables with no estimate line.
 - "Wear and Tear" — items whose failure is age-related rather than accidental: belts, hoses, worn tyres, filters.
-- "No Estitmation" — a genuine repair part with no corresponding estimate line. Keep this exact spelling.
+- "No Estimation" — a genuine repair part with no corresponding estimate line.
 - "No Liable" — the line relates to damage outside the claim, for example the opposite-side counterpart of a damaged part, or unrelated cosmetic work.
 - Labour lines are only ever "OK" or "No Liable".`;
 
@@ -808,7 +808,7 @@ function buildModel(d, ests) {
     ins: num(p.invoice_amount),
     dep: p.depreciation_percent == null ? dep : num(p.depreciation_percent),
     gst: p.gst_percent == null ? gst : num(p.gst_percent),
-    status: STATUSES.indexOf(p.status) >= 0 ? p.status : "No Estitmation"
+    status: STATUSES.indexOf(p.status) >= 0 ? p.status : "No Estimation"
   }));
 
   state.labour = (d.labour || []).map((l) => ({
