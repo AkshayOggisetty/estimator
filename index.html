@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Estimate &amp; Invoice Extractor</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%BE%3C/text%3E%3C/svg%3E" />
+<style>
+  :root {
+    --bg: #08090c;
+    --panel: rgba(255,255,255,.025);
+    --panel-solid: #0e1015;
+    --panel-2: rgba(255,255,255,.015);
+    --border: rgba(255,255,255,.08);
+    --border-strong: rgba(255,255,255,.16);
+    --text: #eef1f6;
+    --muted: #8b93a2;
+    --faint: #5c6473;
+    --accent: #4f9dff;
+    --accent-2: #8b5cf6;
+    --accent-ink: #05070c;
+    --good: #34d399;
+    --up: #fb7185;
+    --down: #60a5fa;
+    --radius: 14px;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    color: var(--text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    background:
+      radial-gradient(900px 600px at 12% -8%, rgba(79,157,255,.14), transparent 60%),
+      radial-gradient(800px 600px at 108% 12%, rgba(139,92,246,.12), transparent 55%),
+      radial-gradient(700px 700px at 50% 120%, rgba(52,211,153,.06), transparent 60%),
+      var(--bg);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 30px 20px 90px; }
+
+  header.app { display: flex; align-items: center; gap: 15px; margin-bottom: 4px; }
+  header.app .logo {
+    width: 46px; height: 46px; border-radius: 13px; flex: 0 0 auto;
+    display: grid; place-items: center; font-size: 24px;
+    background: linear-gradient(150deg, var(--accent), var(--accent-2));
+    box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 8px 26px rgba(79,157,255,.35);
+  }
+  header.app h1 {
+    font-size: 21px; margin: 0; letter-spacing: -.02em;
+    background: linear-gradient(90deg, #fff, #b9c6da);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  header.app p { margin: 3px 0 0; color: var(--muted); font-size: 13.5px; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 20px 50px rgba(0,0,0,.45);
+  }
+  section.block { margin-top: 18px; padding: 20px; }
+  section.block > h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--muted); margin: 0 0 15px; font-weight: 700;
+    display: flex; align-items: center; gap: 9px;
+  }
+  section.block > h2 .n {
+    display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 6px;
+    font-size: 11px; color: var(--accent-ink); background: linear-gradient(150deg, var(--accent), var(--accent-2));
+    font-weight: 800;
+  }
+
+  label.field { display: block; font-size: 13px; font-weight: 600; margin-bottom: 7px; color: var(--text); }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row > .col { flex: 1 1 260px; min-width: 200px; }
+
+  input[type=password], input[type=text], select {
+    width: 100%; padding: 11px 13px; font-size: 14px; font-family: var(--sans);
+    background: #0b0d12; color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px; outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input::placeholder { color: var(--faint); }
+  input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,157,255,.22); }
+  select { appearance: none; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%238b93a2' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; padding-right: 34px; }
+  .key-row { display: flex; gap: 8px; }
+  .key-row input { flex: 1; font-family: var(--mono); }
+
+  .hint { font-size: 12px; color: var(--faint); margin-top: 9px; }
+  .hint code { font-family: var(--mono); background: rgba(255,255,255,.06); padding: 1px 6px; border-radius: 5px; color: var(--muted); }
+  .hint a { color: var(--accent); text-decoration: none; }
+  .hint a:hover { text-decoration: underline; }
+
+  .checkbox { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); cursor: pointer; margin-top: 12px; }
+  .checkbox input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+  .drops { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 640px) { .drops { grid-template-columns: 1fr; } }
+  .drop {
+    border: 1.5px dashed var(--border-strong); border-radius: 12px; padding: 20px;
+    background: var(--panel-2); text-align: center; cursor: pointer;
+    transition: border-color .15s, background .15s, box-shadow .15s; position: relative;
+  }
+  .drop:hover { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,157,255,.12); }
+  .drop.dragover { border-color: var(--accent); background: rgba(79,157,255,.07); box-shadow: 0 0 0 3px rgba(79,157,255,.2); }
+  .drop .icon { font-size: 27px; opacity: .95; }
+  .drop .dz-title { font-weight: 700; font-size: 14px; margin-top: 7px; }
+  .drop .dz-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .drop.filled { border-style: solid; border-color: rgba(52,211,153,.45); text-align: left; display: flex; align-items: center; gap: 12px; background: rgba(52,211,153,.05); }
+  .drop.filled .fmeta { flex: 1; min-width: 0; }
+  .drop.filled .fname { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .drop.filled .fsize { font-size: 12px; color: var(--muted); }
+  .drop .clear {
+    border: 1px solid var(--border); background: rgba(255,255,255,.03); color: var(--muted);
+    border-radius: 8px; width: 30px; height: 30px; cursor: pointer; font-size: 15px; flex: 0 0 auto;
+  }
+  .drop .clear:hover { color: var(--up); border-color: var(--up); }
+
+  .actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  button.primary {
+    background: linear-gradient(150deg, var(--accent), var(--accent-2));
+    color: #fff; border: none;
+    padding: 13px 24px; font-size: 15px; font-weight: 700; border-radius: 11px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 9px;
+    box-shadow: 0 8px 26px rgba(79,157,255,.32), 0 0 0 1px rgba(255,255,255,.08) inset;
+    transition: transform .12s, box-shadow .15s, opacity .15s;
+  }
+  button.primary:hover { transform: translateY(-1px); box-shadow: 0 12px 32px rgba(79,157,255,.42); }
+  button.primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+  .spinner { width: 16px; height: 16px; border: 2.5px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .status { font-size: 13.5px; color: var(--muted); }
+  .status.err { color: var(--up); font-weight: 600; }
+
+  #results { margin-top: 6px; }
+  .doc-card, .cmp-card { margin-top: 18px; padding: 0; overflow: hidden; }
+  .doc-head {
+    display: flex; align-items: center; gap: 12px; padding: 15px 18px;
+    border-bottom: 1px solid var(--border); background: rgba(255,255,255,.02);
+  }
+  .doc-head .badge {
+    font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 999px; color: #fff; flex: 0 0 auto;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.1) inset;
+  }
+  .badge.est { background: linear-gradient(150deg, #8b5cf6, #6366f1); }
+  .badge.inv { background: linear-gradient(150deg, #10b981, #059669); }
+  .doc-head .dh-title { font-weight: 700; font-size: 15px; flex: 1; min-width: 0; }
+  .doc-head .dh-sub { color: var(--muted); font-size: 12.5px; font-weight: 500; }
+  .doc-body { padding: 17px 18px; }
+
+  .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 20px; }
+  .kv .item .k { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); font-weight: 700; }
+  .kv .item .v { font-size: 14px; white-space: pre-wrap; word-break: break-word; margin-top: 2px; }
+
+  table.li { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13.5px; }
+  table.li th, table.li td { text-align: left; padding: 9px 11px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.li th { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: rgba(255,255,255,.02); font-weight: 700; }
+  table.li td.num, table.li th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.li tbody tr:hover td { background: rgba(255,255,255,.02); }
+  table.li tr:last-child td { border-bottom: none; }
+  .table-scroll { overflow-x: auto; border-radius: 10px; }
+
+  .totals { margin-top: 14px; display: flex; flex-direction: column; gap: 5px; align-items: flex-end; font-size: 14px; }
+  .totals .trow { display: flex; gap: 16px; min-width: 250px; justify-content: space-between; }
+  .totals .trow span:first-child { color: var(--muted); }
+  .totals .trow.grand { font-weight: 800; font-size: 16px; border-top: 1px solid var(--border-strong); padding-top: 7px; margin-top: 4px; }
+  .totals .trow.grand span:first-child { color: var(--text); }
+
+  .cmp-summary { padding: 15px 18px; border-bottom: 1px solid var(--border); font-size: 14px; background: rgba(255,255,255,.02); }
+  .pill { font-weight: 800; }
+  .pill.up { color: var(--up); } .pill.down { color: var(--down); } .pill.match { color: var(--good); }
+
+  .copybar { display: flex; gap: 9px; flex-wrap: wrap; margin-top: 20px; }
+  button.ghost {
+    background: rgba(255,255,255,.03); color: var(--text); border: 1px solid var(--border);
+    padding: 9px 14px; font-size: 13px; font-weight: 600; border-radius: 9px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px; transition: border-color .12s, color .12s, background .12s;
+  }
+  button.ghost:hover { border-color: var(--accent); color: #fff; background: rgba(79,157,255,.1); }
+  button.ghost.copied { border-color: var(--good); color: var(--good); }
+  button.mini {
+    background: transparent; color: var(--muted); border: 1px solid var(--border);
+    padding: 5px 11px; font-size: 12px; font-weight: 600; border-radius: 8px; cursor: pointer;
+  }
+  button.mini:hover { border-color: var(--accent); color: #fff; }
+  button.mini.copied { border-color: var(--good); color: var(--good); }
+
+  details.raw { margin-top: 20px; }
+  details.raw summary { cursor: pointer; font-size: 13px; color: var(--muted); font-weight: 600; }
+  pre.json {
+    margin-top: 10px; padding: 15px; background: #0b0d12; border: 1px solid var(--border);
+    border-radius: 10px; overflow: auto; font-family: var(--mono); font-size: 12.5px; max-height: 420px; color: #cdd6e4;
+  }
+  .foot { margin-top: 34px; text-align: center; color: var(--faint); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <div class="logo">🧾</div>
+    <div>
+      <h1>Estimate &amp; Invoice Extractor</h1>
+      <p>Drop in an estimation and an invoice PDF — the AI reads them and hands everything back in copyable form.</p>
+    </div>
+  </header>
+
+  <!-- API KEY -->
+  <section class="block card">
+    <h2><span class="n">1</span> AI API key</h2>
+    <label class="field" for="apiKey">Google Gemini API key</label>
+    <div class="key-row">
+      <input id="apiKey" type="password" placeholder="AIza..." autocomplete="off" spellcheck="false" />
+      <button class="ghost" id="toggleKey" type="button" title="Show / hide">👁</button>
+    </div>
+    <label class="checkbox"><input type="checkbox" id="saveKey" /> Remember this key in this browser (stored locally, only ever sent to Google)</label>
+
+    <div class="row" style="margin-top:16px;">
+      <div class="col">
+        <label class="field" for="model">Model</label>
+        <select id="model">
+          <option value="gemini-2.5-flash">Gemini 2.5 Flash — best free choice</option>
+          <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite — fastest, highest free limits</option>
+          <option value="gemini-2.5-pro">Gemini 2.5 Pro — most capable (limited free tier)</option>
+        </select>
+      </div>
+    </div>
+    <p class="hint">Get a <strong>free</strong> key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> — no billing needed. Your key stays in your browser and is sent directly to Google's API.</p>
+  </section>
+
+  <!-- UPLOADS -->
+  <section class="block card">
+    <h2><span class="n">2</span> Documents</h2>
+    <div class="drops">
+      <div class="drop" id="dropEst" data-kind="est">
+        <input type="file" accept="application/pdf,.pdf" hidden />
+        <div class="empty">
+          <div class="icon">📐</div>
+          <div class="dz-title">Estimation PDF</div>
+          <div class="dz-sub">Click or drag a PDF here</div>
+        </div>
+      </div>
+      <div class="drop" id="dropInv" data-kind="inv">
+        <input type="file" accept="application/pdf,.pdf" hidden />
+        <div class="empty">
+          <div class="icon">🧾</div>
+          <div class="dz-title">Invoice PDF</div>
+          <div class="dz-sub">Click or drag a PDF here</div>
+        </div>
+      </div>
+    </div>
+    <p class="hint">Add either or both. With both, you also get an estimate‑vs‑invoice comparison. Keep files small (a few MB) — they're sent inline to Gemini.</p>
+  </section>
+
+  <!-- RUN -->
+  <section class="block card">
+    <h2><span class="n">3</span> Extract</h2>
+    <div class="actions">
+      <button class="primary" id="runBtn" type="button">✨ Read documents</button>
+      <span class="status" id="status"></span>
+    </div>
+  </section>
+
+  <div id="results"></div>
+
+  <p class="foot">Runs entirely in your browser · powered by Google Gemini's native PDF understanding.</p>
+</div>
+
+<script>
+"use strict";
+
+const $ = (s, r = document) => r.querySelector(s);
+const files = { est: null, inv: null };
+const MAX_BYTES = 18 * 1024 * 1024; // inline request cap ~20MB; keep headroom
+
+/* ---------- API key persistence ---------- */
+const keyInput = $("#apiKey");
+const saveKeyChk = $("#saveKey");
+try {
+  const saved = localStorage.getItem("estimator_gemini_key");
+  if (saved) { keyInput.value = saved; saveKeyChk.checked = true; }
+} catch (e) {}
+saveKeyChk.addEventListener("change", () => {
+  if (!saveKeyChk.checked) { try { localStorage.removeItem("estimator_gemini_key"); } catch (e) {} }
+  else persistKey();
+});
+keyInput.addEventListener("input", persistKey);
+function persistKey() {
+  if (saveKeyChk.checked) { try { localStorage.setItem("estimator_gemini_key", keyInput.value.trim()); } catch (e) {} }
+}
+$("#toggleKey").addEventListener("click", () => {
+  keyInput.type = keyInput.type === "password" ? "text" : "password";
+});
+
+/* ---------- dropzones ---------- */
+setupDrop($("#dropEst"), "est");
+setupDrop($("#dropInv"), "inv");
+
+function setupDrop(el, kind) {
+  const input = el.querySelector('input[type=file]');
+  el.addEventListener("click", (e) => { if (!e.target.closest(".clear")) input.click(); });
+  input.addEventListener("change", () => { if (input.files[0]) setFile(kind, input.files[0]); input.value = ""; });
+  el.addEventListener("dragover", (e) => { e.preventDefault(); el.classList.add("dragover"); });
+  el.addEventListener("dragleave", () => el.classList.remove("dragover"));
+  el.addEventListener("drop", (e) => {
+    e.preventDefault(); el.classList.remove("dragover");
+    const f = e.dataTransfer.files[0];
+    if (f) setFile(kind, f);
+  });
+}
+
+function setFile(kind, file) {
+  if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+    setStatus("Only PDF files are supported.", true); return;
+  }
+  if (file.size > MAX_BYTES) {
+    setStatus("That PDF is over 18 MB — too large to send inline. Try a smaller/compressed PDF.", true); return;
+  }
+  files[kind] = file;
+  renderDrop(kind);
+  setStatus("");
+}
+
+function clearFile(kind) { files[kind] = null; renderDrop(kind); }
+
+function renderDrop(kind) {
+  const el = kind === "est" ? $("#dropEst") : $("#dropInv");
+  const label = kind === "est" ? "Estimation PDF" : "Invoice PDF";
+  const emptyIcon = kind === "est" ? "📐" : "🧾";
+  const f = files[kind];
+  if (!f) {
+    el.classList.remove("filled");
+    el.innerHTML = `<input type="file" accept="application/pdf,.pdf" hidden />
+      <div class="empty"><div class="icon">${emptyIcon}</div>
+      <div class="dz-title">${label}</div>
+      <div class="dz-sub">Click or drag a PDF here</div></div>`;
+  } else {
+    el.classList.add("filled");
+    el.innerHTML = `<input type="file" accept="application/pdf,.pdf" hidden />
+      <div class="icon">📄</div>
+      <div class="fmeta"><div class="fname">${esc(f.name)}</div>
+      <div class="fsize">${label} · ${fmtSize(f.size)}</div></div>
+      <button class="clear" title="Remove" type="button">✕</button>`;
+    el.querySelector(".clear").addEventListener("click", (e) => { e.stopPropagation(); clearFile(kind); });
+  }
+  setupDrop(el, kind);
+}
+
+/* ---------- run ---------- */
+$("#runBtn").addEventListener("click", run);
+
+async function run() {
+  const key = keyInput.value.trim();
+  if (!key) { setStatus("Enter your Gemini API key first.", true); return; }
+  if (!files.est && !files.inv) { setStatus("Add at least one PDF.", true); return; }
+
+  const btn = $("#runBtn");
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner"></span> Reading…`;
+  $("#results").innerHTML = "";
+  setStatus("Encoding PDFs…");
+
+  try {
+    const parts = [];
+    if (files.est) parts.push(await geminiPart(files.est));
+    if (files.inv) parts.push(await geminiPart(files.inv));
+    parts.push({ text: buildInstruction() });
+
+    const model = $("#model").value;
+    const body = {
+      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [{ role: "user", parts }],
+      generationConfig: {
+        temperature: 0,
+        maxOutputTokens: 32768,
+        responseMimeType: "application/json"
+      }
+    };
+    // Flash + Flash-Lite: turn thinking off for fast, deterministic extraction.
+    if (model.indexOf("flash") !== -1) {
+      body.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+    }
+
+    setStatus("Sending to Gemini — this can take 10–40s for detailed invoices…");
+
+    const resp = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify(body)
+      }
+    );
+
+    const raw = await resp.json();
+    if (!resp.ok) {
+      const msg = raw && raw.error && raw.error.message ? raw.error.message : ("HTTP " + resp.status);
+      throw new Error(msg);
+    }
+    const cand = raw.candidates && raw.candidates[0];
+    if (!cand) {
+      const bm = raw.promptFeedback && raw.promptFeedback.blockReason;
+      throw new Error(bm ? ("Request blocked by Gemini: " + bm) : "Gemini returned no output.");
+    }
+    const text = ((cand.content && cand.content.parts) || []).map(p => p.text).filter(Boolean).join("");
+    if (!text) throw new Error("Gemini returned an empty response (finish reason: " + (cand.finishReason || "unknown") + "). Try a smaller PDF or a different model.");
+    const data = extractJson(text);
+    render(data);
+    setStatus("Done · extracted " + (data.documents ? data.documents.length : 0) + " document(s).");
+  } catch (err) {
+    setStatus(err.message || String(err), true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = "✨ Read documents";
+  }
+}
+
+function buildInstruction() {
+  const have = [];
+  if (files.est) have.push("an ESTIMATION document");
+  if (files.inv) have.push("an INVOICE document");
+  let s = "I've attached " + have.join(" and ") + " (in that order). ";
+  s += "Extract ALL data from each document accurately and completely, and return it using the exact JSON structure described in the system instructions.";
+  if (files.est && files.inv) s += " Also produce a line-by-line comparison of the estimate versus the invoice.";
+  else s += " There is only one document, so set \"comparison\" to null.";
+  return s;
+}
+
+const SYSTEM_PROMPT = `You are a meticulous document data-extraction engine for construction, trade, and professional-services ESTIMATES and INVOICES.
+
+You receive one or two PDF documents. Read every page carefully, including tables, headers, footers, and fine print. Extract all information — do not summarize or omit line items.
+
+Respond with a SINGLE JSON object ONLY. No prose, no explanation, no markdown code fences. Use exactly this shape:
+
+{
+  "documents": [
+    {
+      "role": "estimation" | "invoice",
+      "document_title": string,
+      "document_number": string | null,
+      "date": string | null,
+      "due_date": string | null,
+      "from": { "name": string|null, "address": string|null, "contact": string|null },
+      "to":   { "name": string|null, "address": string|null, "contact": string|null },
+      "line_items": [
+        { "description": string, "quantity": string|null, "unit_price": string|null, "amount": string|null }
+      ],
+      "subtotal": string | null,
+      "tax": string | null,
+      "discount": string | null,
+      "total": string | null,
+      "currency": string | null,
+      "payment_terms": string | null,
+      "notes": string | null,
+      "other_fields": { }
+    }
+  ],
+  "comparison": null | {
+    "summary": string,
+    "rows": [
+      { "item": string, "estimated": string|null, "invoiced": string|null, "difference": string|null,
+        "status": "match" | "increase" | "decrease" | "only_estimate" | "only_invoice" }
+    ],
+    "estimated_total": string | null,
+    "invoiced_total": string | null,
+    "total_difference": string | null
+  }
+}
+
+Rules:
+- Keep monetary values as strings, preserving the original currency symbol and formatting (e.g. "$1,250.00", "INR 4,500").
+- Capture EVERY line item exactly as printed.
+- If a field is absent in the document, use null (or {} / [] for objects/arrays).
+- The first attached document is the estimation; the second is the invoice. If only one is attached, "comparison" must be null.
+- Match comparison rows by matching descriptions; use "only_estimate"/"only_invoice" when an item appears in just one document.`;
+
+/* ---------- helpers ---------- */
+function geminiPart(file) {
+  return fileToBase64(file).then(b64 => ({
+    inline_data: { mime_type: "application/pdf", data: b64 }
+  }));
+}
+function fileToBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(",")[1]);
+    r.onerror = () => rej(new Error("Could not read " + file.name));
+    r.readAsDataURL(file);
+  });
+}
+function extractJson(text) {
+  let t = (text || "").trim();
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) t = fence[1].trim();
+  try { return JSON.parse(t); } catch (e) {}
+  const a = t.indexOf("{"), b = t.lastIndexOf("}");
+  if (a !== -1 && b !== -1 && b > a) {
+    try { return JSON.parse(t.slice(a, b + 1)); } catch (e) {}
+  }
+  throw new Error("Couldn't parse the model's response as JSON.");
+}
+function setStatus(msg, isErr) {
+  const el = $("#status");
+  el.textContent = msg || "";
+  el.className = "status" + (isErr ? " err" : "");
+}
+function esc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function fmt(v) { return (v === null || v === undefined || v === "") ? "—" : String(v); }
+function fmtSize(n) {
+  if (n < 1024) return n + " B";
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + " KB";
+  return (n / 1024 / 1024).toFixed(2) + " MB";
+}
+
+/* ---------- rendering ---------- */
+let LAST_DATA = null;
+function render(data) {
+  LAST_DATA = data;
+  const root = $("#results");
+  root.innerHTML = "";
+
+  const docs = Array.isArray(data.documents) ? data.documents : [];
+  docs.forEach((d, i) => root.appendChild(renderDoc(d, i)));
+
+  if (data.comparison) root.appendChild(renderComparison(data.comparison));
+
+  const bar = document.createElement("div");
+  bar.className = "copybar";
+  bar.appendChild(copyBtn("ghost", "📋 Copy full report", () => reportText(data)));
+  bar.appendChild(copyBtn("ghost", "🧮 Copy line items (CSV)", () => csvText(data)));
+  bar.appendChild(copyBtn("ghost", "{ } Copy JSON", () => JSON.stringify(data, null, 2)));
+  root.appendChild(bar);
+
+  const det = document.createElement("details");
+  det.className = "raw";
+  det.innerHTML = `<summary>Show raw JSON</summary><pre class="json">${esc(JSON.stringify(data, null, 2))}</pre>`;
+  root.appendChild(det);
+
+  root.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderDoc(d, idx) {
+  const isInv = (d.role || "").toLowerCase() === "invoice";
+  const card = document.createElement("div");
+  card.className = "card doc-card";
+
+  const head = document.createElement("div");
+  head.className = "doc-head";
+  head.innerHTML =
+    `<span class="badge ${isInv ? "inv" : "est"}">${isInv ? "Invoice" : "Estimate"}</span>
+     <div class="dh-title">${esc(d.document_title || (isInv ? "Invoice" : "Estimate"))}
+        ${d.document_number ? `<span class="dh-sub"> · #${esc(d.document_number)}</span>` : ""}</div>`;
+  head.appendChild(copyBtn("mini", "Copy", () => docText(d)));
+  card.appendChild(head);
+
+  const body = document.createElement("div");
+  body.className = "doc-body";
+
+  const kv = document.createElement("div");
+  kv.className = "kv";
+  const from = d.from || {}, to = d.to || {};
+  const pairs = [
+    ["Date", d.date], ["Due date", d.due_date],
+    ["From", joinParts([from.name, from.address, from.contact])],
+    ["To / Client", joinParts([to.name, to.address, to.contact])],
+    ["Currency", d.currency], ["Payment terms", d.payment_terms]
+  ];
+  const other = d.other_fields && typeof d.other_fields === "object" ? d.other_fields : {};
+  Object.keys(other).forEach(k => pairs.push([k, other[k]]));
+  pairs.forEach(([k, v]) => {
+    if (v == null || v === "") return;
+    const it = document.createElement("div");
+    it.className = "item";
+    it.innerHTML = `<div class="k">${esc(k)}</div><div class="v">${esc(fmt(v))}</div>`;
+    kv.appendChild(it);
+  });
+  if (kv.children.length) body.appendChild(kv);
+
+  const items = Array.isArray(d.line_items) ? d.line_items : [];
+  if (items.length) {
+    const scroll = document.createElement("div");
+    scroll.className = "table-scroll";
+    const t = document.createElement("table");
+    t.className = "li";
+    t.innerHTML = `<thead><tr>
+      <th style="width:44px">#</th><th>Description</th>
+      <th class="num">Qty</th><th class="num">Unit price</th><th class="num">Amount</th>
+      </tr></thead><tbody>${items.map((li, i) => `<tr>
+        <td>${i + 1}</td>
+        <td>${esc(fmt(li.description))}</td>
+        <td class="num">${esc(fmt(li.quantity))}</td>
+        <td class="num">${esc(fmt(li.unit_price))}</td>
+        <td class="num">${esc(fmt(li.amount))}</td>
+      </tr>`).join("")}</tbody>`;
+    scroll.appendChild(t);
+    body.appendChild(scroll);
+  }
+
+  const totals = [
+    ["Subtotal", d.subtotal], ["Discount", d.discount], ["Tax", d.tax]
+  ].filter(([, v]) => v != null && v !== "");
+  if (totals.length || (d.total != null && d.total !== "")) {
+    const tb = document.createElement("div");
+    tb.className = "totals";
+    totals.forEach(([k, v]) => {
+      const r = document.createElement("div");
+      r.className = "trow";
+      r.innerHTML = `<span>${esc(k)}</span><span>${esc(fmt(v))}</span>`;
+      tb.appendChild(r);
+    });
+    if (d.total != null && d.total !== "") {
+      const r = document.createElement("div");
+      r.className = "trow grand";
+      r.innerHTML = `<span>Total</span><span>${esc(fmt(d.total))}</span>`;
+      tb.appendChild(r);
+    }
+    body.appendChild(tb);
+  }
+
+  if (d.notes) {
+    const n = document.createElement("div");
+    n.className = "kv";
+    n.style.marginTop = "14px";
+    n.innerHTML = `<div class="item"><div class="k">Notes</div><div class="v">${esc(d.notes)}</div></div>`;
+    body.appendChild(n);
+  }
+
+  card.appendChild(body);
+  return card;
+}
+
+function renderComparison(c) {
+  const card = document.createElement("div");
+  card.className = "card cmp-card";
+
+  const head = document.createElement("div");
+  head.className = "doc-head";
+  head.innerHTML = `<span class="badge" style="background:linear-gradient(150deg,#f59e0b,#d97706)">Comparison</span>
+    <div class="dh-title">Estimate vs Invoice</div>`;
+  head.appendChild(copyBtn("mini", "Copy", () => comparisonText(c)));
+  card.appendChild(head);
+
+  if (c.summary) {
+    const s = document.createElement("div");
+    s.className = "cmp-summary";
+    s.textContent = c.summary;
+    card.appendChild(s);
+  }
+
+  const body = document.createElement("div");
+  body.className = "doc-body";
+  const rows = Array.isArray(c.rows) ? c.rows : [];
+  if (rows.length) {
+    const scroll = document.createElement("div");
+    scroll.className = "table-scroll";
+    const t = document.createElement("table");
+    t.className = "li";
+    t.innerHTML = `<thead><tr>
+      <th>Item</th><th class="num">Estimated</th><th class="num">Invoiced</th>
+      <th class="num">Difference</th><th>Status</th></tr></thead>
+      <tbody>${rows.map(r => `<tr>
+        <td>${esc(fmt(r.item))}</td>
+        <td class="num">${esc(fmt(r.estimated))}</td>
+        <td class="num">${esc(fmt(r.invoiced))}</td>
+        <td class="num">${esc(fmt(r.difference))}</td>
+        <td>${statusPill(r.status)}</td>
+      </tr>`).join("")}</tbody>`;
+    scroll.appendChild(t);
+    body.appendChild(scroll);
+  }
+
+  const tb = document.createElement("div");
+  tb.className = "totals";
+  if (c.estimated_total != null && c.estimated_total !== "")
+    tb.innerHTML += `<div class="trow"><span>Estimated total</span><span>${esc(fmt(c.estimated_total))}</span></div>`;
+  if (c.invoiced_total != null && c.invoiced_total !== "")
+    tb.innerHTML += `<div class="trow"><span>Invoiced total</span><span>${esc(fmt(c.invoiced_total))}</span></div>`;
+  if (c.total_difference != null && c.total_difference !== "")
+    tb.innerHTML += `<div class="trow grand"><span>Total difference</span><span>${esc(fmt(c.total_difference))}</span></div>`;
+  if (tb.innerHTML) body.appendChild(tb);
+
+  card.appendChild(body);
+  return card;
+}
+
+function statusPill(s) {
+  s = (s || "").toLowerCase();
+  const map = {
+    match: ["match", "match"], increase: ["up", "▲ increase"], decrease: ["down", "▼ decrease"],
+    only_estimate: ["", "estimate only"], only_invoice: ["", "invoice only"]
+  };
+  const m = map[s] || ["", s || "—"];
+  return `<span class="pill ${m[0]}">${esc(m[1])}</span>`;
+}
+
+function joinParts(arr) { return arr.filter(x => x != null && x !== "").join("\n"); }
+
+/* ---------- copy ---------- */
+function copyBtn(cls, label, textFn) {
+  const b = document.createElement("button");
+  b.className = cls;
+  b.textContent = label;
+  b.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(textFn());
+      const old = b.textContent;
+      b.classList.add("copied"); b.textContent = "✓ Copied";
+      setTimeout(() => { b.classList.remove("copied"); b.textContent = old; }, 1400);
+    } catch (e) { setStatus("Copy failed — your browser blocked clipboard access.", true); }
+  });
+  return b;
+}
+
+function docText(d) {
+  const L = [];
+  const isInv = (d.role || "").toLowerCase() === "invoice";
+  L.push((isInv ? "INVOICE" : "ESTIMATE") + " — " + (d.document_title || ""));
+  if (d.document_number) L.push("Number: " + d.document_number);
+  if (d.date) L.push("Date: " + d.date);
+  if (d.due_date) L.push("Due: " + d.due_date);
+  const from = d.from || {}, to = d.to || {};
+  if (from.name || from.address) L.push("From: " + joinParts([from.name, from.address, from.contact]).replace(/\n/g, " | "));
+  if (to.name || to.address) L.push("To: " + joinParts([to.name, to.address, to.contact]).replace(/\n/g, " | "));
+  L.push("");
+  const items = Array.isArray(d.line_items) ? d.line_items : [];
+  items.forEach((li, i) => {
+    L.push(`${i + 1}. ${fmt(li.description)}  |  qty ${fmt(li.quantity)}  |  @ ${fmt(li.unit_price)}  |  ${fmt(li.amount)}`);
+  });
+  if (items.length) L.push("");
+  if (d.subtotal) L.push("Subtotal: " + d.subtotal);
+  if (d.discount) L.push("Discount: " + d.discount);
+  if (d.tax) L.push("Tax: " + d.tax);
+  if (d.total) L.push("TOTAL: " + d.total);
+  if (d.payment_terms) L.push("Terms: " + d.payment_terms);
+  if (d.notes) L.push("Notes: " + d.notes);
+  return L.join("\n");
+}
+
+function comparisonText(c) {
+  const L = ["ESTIMATE vs INVOICE"];
+  if (c.summary) L.push(c.summary, "");
+  (c.rows || []).forEach(r => {
+    L.push(`${fmt(r.item)}  |  est ${fmt(r.estimated)}  ->  inv ${fmt(r.invoiced)}  |  diff ${fmt(r.difference)}  (${fmt(r.status)})`);
+  });
+  L.push("");
+  if (c.estimated_total) L.push("Estimated total: " + c.estimated_total);
+  if (c.invoiced_total) L.push("Invoiced total: " + c.invoiced_total);
+  if (c.total_difference) L.push("Total difference: " + c.total_difference);
+  return L.join("\n");
+}
+
+function reportText(data) {
+  const parts = (data.documents || []).map(docText);
+  if (data.comparison) parts.push(comparisonText(data.comparison));
+  return parts.join("\n\n" + "=".repeat(48) + "\n\n");
+}
+
+function csvText(data) {
+  const rows = [["document", "role", "line#", "description", "quantity", "unit_price", "amount"]];
+  (data.documents || []).forEach(d => {
+    const label = d.document_title || d.role || "";
+    (d.line_items || []).forEach((li, i) => {
+      rows.push([label, d.role || "", i + 1, li.description, li.quantity, li.unit_price, li.amount]);
+    });
+  });
+  return rows.map(r => r.map(csvCell).join(",")).join("\n");
+}
+function csvCell(v) {
+  const s = (v == null ? "" : String(v));
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+</script>
+</body>
+</html>
